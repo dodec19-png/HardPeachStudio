@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>About</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #ffffff;
+      font-family: Arial, sans-serif;
+      min-height: 100%;
+    }
+
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 24px 40px;
+      box-sizing: border-box;
+      z-index: 100;
+    }
+
+    .nav-logo {
+      font-size: 20px;
+      font-weight: bold;
+      cursor: pointer;
+      text-decoration: none;
+      color: black;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 32px;
+    }
+
+    .nav-links a {
+      font-size: 16px;
+      font-weight: bold;
+      text-decoration: none;
+      color: black;
+      cursor: pointer;
+    }
+
+    .about-wrap {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 160px 40px 80px;
+    }
+
+    .about-name {
+      font-size: 48px;
+      font-weight: bold;
+      margin: 0 0 16px;
+    }
+
+    .about-role {
+      font-size: 18px;
+      color: #f3a0b5;
+      font-weight: bold;
+      margin: 0 0 48px;
+    }
+
+    .about-section {
+      margin-bottom: 48px;
+    }
+
+    .about-section h3 {
+      font-size: 13px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #999;
+      margin: 0 0 12px;
+    }
+
+    .about-section p {
+      font-size: 16px;
+      line-height: 1.8;
+      color: #333;
+      margin: 0;
+    }
+
+    #transition {
+      position: fixed;
+      width: 20px;
+      height: 20px;
+      background: white;
+      border-radius: 50%;
+      pointer-events: none;
+      transform: scale(0);
+      z-index: 300;
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-logo nav-link" data-link="index.html">PORTFOLIO</a>
+  <div class="nav-links">
+    <a class="nav-link" data-link="work.html">WORK</a>
+    <a class="nav-link" data-link="about.html">ABOUT</a>
+    <a class="nav-link" data-link="contact.html">CONTACT</a>
+  </div>
+</nav>
+
+<div class="about-wrap">
+  <h1 class="about-name">Your Name</h1>
+  <p class="about-role">Designer / Visual Artist</p>
+
+  <div class="about-section">
+    <h3>About</h3>
+    <p>
+      자기소개 텍스트를 여기에 적어주세요.<br>
+      두세 문단 정도면 충분합니다.
+    </p>
+  </div>
+
+  <div class="about-section">
+    <h3>Skills</h3>
+    <p>Figma · Illustrator · Photoshop · After Effects</p>
+  </div>
+
+  <div class="about-section">
+    <h3>Education</h3>
+    <p>학교명 / 전공 / 졸업연도</p>
+  </div>
+</div>
+
+<div id="transition"></div>
+
+<script>
+  const transition = document.getElementById('transition');
+  document.querySelectorAll('.nav-link').forEach(item => {
+    item.addEventListener('click', () => {
+      const r = item.getBoundingClientRect();
+      transition.style.left = r.left + r.width / 2 + 'px';
+      transition.style.top = r.top + r.height / 2 + 'px';
+      transition.style.transform = 'translate(-50%, -50%) scale(0)';
+      transition.style.transition = 'transform 0.9s ease-out';
+      requestAnimationFrame(() => {
+        transition.style.transform = 'translate(-50%, -50%) scale(150)';
+      });
+      setTimeout(() => {
+        location.href = item.dataset.link;
+      }, 900);
+    });
+  });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>Contact</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #ffffff;
+      font-family: Arial, sans-serif;
+      height: 100%;
+    }
+
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 24px 40px;
+      box-sizing: border-box;
+      z-index: 100;
+    }
+
+    .nav-logo {
+      font-size: 20px;
+      font-weight: bold;
+      cursor: pointer;
+      text-decoration: none;
+      color: black;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 32px;
+    }
+
+    .nav-links a {
+      font-size: 16px;
+      font-weight: bold;
+      text-decoration: none;
+      color: black;
+      cursor: pointer;
+    }
+
+    .contact-wrap {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      height: 100vh;
+      padding: 0 40px;
+      box-sizing: border-box;
+      max-width: 680px;
+      margin: 0 auto;
+    }
+
+    .contact-title {
+      font-size: 48px;
+      font-weight: bold;
+      margin: 0 0 48px;
+    }
+
+    .contact-links {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .contact-links a {
+      font-size: 20px;
+      font-weight: bold;
+      color: black;
+      text-decoration: none;
+      border-bottom: 2px solid black;
+      padding-bottom: 4px;
+      display: inline-block;
+      transition: color 0.2s;
+    }
+
+    .contact-links a:hover {
+      color: #f3a0b5;
+      border-color: #f3a0b5;
+    }
+
+    .contact-label {
+      font-size: 12px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #999;
+      margin-bottom: 4px;
+    }
+
+    #transition {
+      position: fixed;
+      width: 20px;
+      height: 20px;
+      background: white;
+      border-radius: 50%;
+      pointer-events: none;
+      transform: scale(0);
+      z-index: 300;
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-logo nav-link" data-link="index.html">PORTFOLIO</a>
+  <div class="nav-links">
+    <a class="nav-link" data-link="work.html">WORK</a>
+    <a class="nav-link" data-link="about.html">ABOUT</a>
+    <a class="nav-link" data-link="contact.html">CONTACT</a>
+  </div>
+</nav>
+
+<div class="contact-wrap">
+  <h1 class="contact-title">GET IN TOUCH</h1>
+  <div class="contact-links">
+
+    <div>
+      <p class="contact-label">Email</p>
+      <a href="mailto:your@email.com">your@email.com</a>
+    </div>
+
+    <div>
+      <p class="contact-label">Instagram</p>
+      <a href="https://instagram.com/yourhandle" target="_blank">@yourhandle</a>
+    </div>
+
+    <div>
+      <p class="contact-label">Behance</p>
+      <a href="https://behance.net/yourhandle" target="_blank">behance.net/yourhandle</a>
+    </div>
+
+    <!-- SNS 추가 시 위 블록 복붙 -->
+  </div>
+</div>
+
+<div id="transition"></div>
+
+<script>
+  const transition = document.getElementById('transition');
+  document.querySelectorAll('.nav-link').forEach(item => {
+    item.addEventListener('click', () => {
+      const r = item.getBoundingClientRect();
+      transition.style.left = r.left + r.width / 2 + 'px';
+      transition.style.top = r.top + r.height / 2 + 'px';
+      transition.style.transform = 'translate(-50%, -50%) scale(0)';
+      transition.style.transition = 'transform 0.9s ease-out';
+      requestAnimationFrame(() => {
+        transition.style.transform = 'translate(-50%, -50%) scale(150)';
+      });
+      setTimeout(() => {
+        location.href = item.dataset.link;
+      }, 900);
+    });
+  });
+</script>
+
+</body>
+</html>

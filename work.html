@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>Work</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #ffffff;
+      font-family: Arial, sans-serif;
+      min-height: 100%;
+    }
+
+    /* 상단 네비 */
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 24px 40px;
+      box-sizing: border-box;
+      z-index: 100;
+    }
+
+    .nav-logo {
+      font-size: 20px;
+      font-weight: bold;
+      cursor: pointer;
+      text-decoration: none;
+      color: black;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 32px;
+    }
+
+    .nav-links a {
+      font-size: 16px;
+      font-weight: bold;
+      text-decoration: none;
+      color: black;
+      cursor: pointer;
+    }
+
+    /* 썸네일 그리드 */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      padding: 120px 40px 60px;
+      box-sizing: border-box;
+    }
+
+    .thumb {
+      aspect-ratio: 4/3;
+      overflow: hidden;
+      cursor: pointer;
+      background: #eee;
+    }
+
+    .thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transition: transform 0.3s ease;
+    }
+
+    .thumb:hover img {
+      transform: scale(1.04);
+    }
+
+    /* 팝업 오버레이 */
+    .popup-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 200;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .popup-overlay.active {
+      display: flex;
+    }
+
+    .popup {
+      background: white;
+      width: 80vw;
+      max-width: 900px;
+      max-height: 90vh;
+      overflow-y: auto;
+      padding: 40px;
+      box-sizing: border-box;
+      position: relative;
+    }
+
+    .popup-close {
+      position: absolute;
+      top: 16px;
+      right: 20px;
+      font-size: 28px;
+      cursor: pointer;
+      font-weight: bold;
+      background: none;
+      border: none;
+      line-height: 1;
+    }
+
+    .popup-title {
+      font-size: 28px;
+      font-weight: bold;
+      margin: 0 0 24px;
+    }
+
+    /* 슬라이드 */
+    .slider {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16/9;
+      overflow: hidden;
+      background: #eee;
+      margin-bottom: 24px;
+    }
+
+    .slide {
+      display: none;
+      width: 100%;
+      height: 100%;
+    }
+
+    .slide.active {
+      display: block;
+    }
+
+    .slide img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .slider-btn {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      background: rgba(255,255,255,0.8);
+      border: none;
+      font-size: 24px;
+      width: 44px;
+      height: 44px;
+      cursor: pointer;
+      z-index: 10;
+    }
+
+    .slider-btn.prev { left: 8px; }
+    .slider-btn.next { right: 8px; }
+
+    .slider-dots {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ccc;
+      margin: 0 4px;
+      cursor: pointer;
+    }
+
+    .dot.active {
+      background: black;
+    }
+
+    .popup-description {
+      font-size: 16px;
+      line-height: 1.7;
+      color: #333;
+    }
+
+    /* 페이지 전환 */
+    #transition {
+      position: fixed;
+      width: 20px;
+      height: 20px;
+      background: white;
+      border-radius: 50%;
+      pointer-events: none;
+      transform: scale(0);
+      z-index: 300;
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-logo nav-link" data-link="index.html">PORTFOLIO</a>
+  <div class="nav-links">
+    <a class="nav-link" data-link="work.html">WORK</a>
+    <a class="nav-link" data-link="about.html">ABOUT</a>
+    <a class="nav-link" data-link="contact.html">CONTACT</a>
+  </div>
+</nav>
+
+<div class="grid" id="grid"></div>
+
+<!-- 팝업 -->
+<div class="popup-overlay" id="popupOverlay">
+  <div class="popup">
+    <button class="popup-close" id="popupClose">✕</button>
+    <h2 class="popup-title" id="popupTitle"></h2>
+    <div class="slider">
+      <button class="slider-btn prev" id="prevBtn">&#8592;</button>
+      <div id="slides"></div>
+      <button class="slider-btn next" id="nextBtn">&#8594;</button>
+    </div>
+    <div class="slider-dots" id="dots"></div>
+    <p class="popup-description" id="popupDesc"></p>
+  </div>
+</div>
+
+<div id="transition"></div>
+
+<script src="./projects.js"></script>
+<script>
+  // 썸네일 그리드 생성
+  const grid = document.getElementById('grid');
+  projects.forEach(p => {
+    const div = document.createElement('div');
+    div.className = 'thumb';
+    div.innerHTML = `<img src="${p.thumb}" alt="${p.title}">`;
+    div.addEventListener('click', () => openPopup(p));
+    grid.appendChild(div);
+  });
+
+  // 팝업
+  let currentSlide = 0;
+
+  function openPopup(p) {
+    document.getElementById('popupTitle').textContent = p.title;
+    document.getElementById('popupDesc').textContent = p.description;
+
+    const slidesEl = document.getElementById('slides');
+    const dotsEl = document.getElementById('dots');
+    slidesEl.innerHTML = '';
+    dotsEl.innerHTML = '';
+
+    p.slides.forEach((src, i) => {
+      const slide = document.createElement('div');
+      slide.className = 'slide' + (i === 0 ? ' active' : '');
+      slide.innerHTML = `<img src="${src}" alt="slide${i+1}">`;
+      slidesEl.appendChild(slide);
+
+      const dot = document.createElement('span');
+      dot.className = 'dot' + (i === 0 ? ' active' : '');
+      dot.addEventListener('click', () => goSlide(i));
+      dotsEl.appendChild(dot);
+    });
+
+    currentSlide = 0;
+    document.getElementById('popupOverlay').classList.add('active');
+  }
+
+  function goSlide(n) {
+    const slides = document.querySelectorAll('.slide');
+    const dots = document.querySelectorAll('.dot');
+    slides[currentSlide].classList.remove('active');
+    dots[currentSlide].classList.remove('active');
+    currentSlide = (n + slides.length) % slides.length;
+    slides[currentSlide].classList.add('active');
+    dots[currentSlide].classList.add('active');
+  }
+
+  document.getElementById('prevBtn').addEventListener('click', () => goSlide(currentSlide - 1));
+  document.getElementById('nextBtn').addEventListener('click', () => goSlide(currentSlide + 1));
+
+  document.getElementById('popupClose').addEventListener('click', () => {
+    document.getElementById('popupOverlay').classList.remove('active');
+  });
+
+  document.getElementById('popupOverlay').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('popupOverlay')) {
+      document.getElementById('popupOverlay').classList.remove('active');
+    }
+  });
+
+  // 페이지 전환 (index.html과 동일)
+  const transition = document.getElementById('transition');
+  document.querySelectorAll('.nav-link').forEach(item => {
+    item.addEventListener('click', () => {
+      const r = item.getBoundingClientRect();
+      transition.style.left = r.left + r.width / 2 + 'px';
+      transition.style.top = r.top + r.height / 2 + 'px';
+      transition.style.transform = 'translate(-50%, -50%) scale(0)';
+      transition.style.transition = 'transform 0.9s ease-out';
+      requestAnimationFrame(() => {
+        transition.style.transform = 'translate(-50%, -50%) scale(150)';
+      });
+      setTimeout(() => {
+        location.href = item.dataset.link;
+      }, 900);
+    });
+  });
+</script>
+
+</body>
+</html>
