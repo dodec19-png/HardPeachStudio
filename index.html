@@ -89,7 +89,6 @@
   const peach    = document.getElementById('peach');
   const menuItems = document.querySelectorAll('.menu-item');
 
-  // 임시 캔버스 한 번만 생성
   const tmpCanvas = document.createElement('canvas');
   const ctxTmp = tmpCanvas.getContext('2d');
 
@@ -110,9 +109,22 @@
   let wanderAngle = Math.random() * Math.PI * 2;
   let time = 0;
 
+  // 마우스 이벤트
   window.addEventListener('mousemove', e => {
     mouseX = e.clientX;
     mouseY = e.clientY;
+  });
+
+  // 터치 이벤트 — 손가락 위치를 mouseX/Y로 동일하게 처리
+  window.addEventListener('touchmove', e => {
+    e.preventDefault();
+    mouseX = e.touches[0].clientX;
+    mouseY = e.touches[0].clientY;
+  }, { passive: false });
+
+  window.addEventListener('touchstart', e => {
+    mouseX = e.touches[0].clientX;
+    mouseY = e.touches[0].clientY;
   });
 
   const trails = [];
@@ -127,10 +139,8 @@
 
   function stampPink(px, py, radius) {
     const menus = getMenuRects();
-
     ctxTmp.clearRect(0, 0, tmpCanvas.width, tmpCanvas.height);
 
-    // 1. 텍스트를 핑크로 그리기
     ctxTmp.globalCompositeOperation = 'source-over';
     ctxTmp.font = 'bold 48px Arial';
     ctxTmp.textBaseline = 'top';
@@ -139,13 +149,11 @@
       ctxTmp.fillText(m.text, m.rect.left, m.rect.top);
     });
 
-    // 2. 현재 원과 교차 영역만 남기기
     ctxTmp.globalCompositeOperation = 'destination-in';
     ctxTmp.beginPath();
     ctxTmp.arc(px, py, radius, 0, Math.PI * 2);
     ctxTmp.fill();
 
-    // 3. permCanvas에 누적 (지우지 않음)
     ctxPerm.globalCompositeOperation = 'source-over';
     ctxPerm.drawImage(tmpCanvas, 0, 0);
   }
@@ -156,7 +164,7 @@
     const dy = y - mouseY;
     const dist = Math.hypot(dx, dy);
 
-    const comfortZone = 180;
+    const comfortZone = 110;
     const attractZone = 220;
 
     if (dist < comfortZone) {
@@ -175,7 +183,6 @@
       vy += Math.sin(orbitAngle + wanderAngle * 0.3) * 0.09;
     }
 
-    // 미세 진동
     vx += Math.sin(time * 0.07) * 0.05;
     vy += Math.cos(time * 0.11) * 0.05;
 
@@ -196,7 +203,6 @@
     trails.push({ x, y, radius });
     if (trails.length > MAX_TRAIL) trails.shift();
 
-    // 핑크 궤적
     ctxTrail.clearRect(0, 0, trailCanvas.width, trailCanvas.height);
     trails.forEach((t, i) => {
       const age = i / trails.length;
@@ -210,7 +216,6 @@
     });
     ctxTrail.globalAlpha = 1;
 
-    // 현재 위치 핑크 누적
     stampPink(x, y, radius + 18);
 
     peach.style.left = x + 'px';
@@ -221,6 +226,7 @@
 
   draw();
 
+  // 클릭 + 탭 전환
   const transition = document.getElementById('transition');
   menuItems.forEach(item => {
     item.addEventListener('click', () => {
