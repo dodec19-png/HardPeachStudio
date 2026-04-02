@@ -3,7 +3,6 @@
 <head>
   <meta charset="UTF-8">
   <title>Portfolio</title>
-
 <style>
   html, body {
     margin: 0;
@@ -24,11 +23,13 @@
     gap: 60px;
     font-size: 48px;
     font-weight: bold;
-    color: black;
     user-select: none;
     z-index: 10;
     pointer-events: auto;
+    color: transparent;
   }
+
+  .menu-item { cursor: pointer; }
 
   #peach {
     position: fixed;
@@ -38,17 +39,21 @@
     transform: translate(-50%, -50%);
   }
 
-  #paint, #mask {
+  #trailCanvas {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
     pointer-events: none;
+    z-index: 1;
   }
 
-  #paint { z-index: 1; }
-  #mask { z-index: 3; }
+  #permanentCanvas {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 2;
+  }
 
   #transition {
     position: fixed;
@@ -60,130 +65,174 @@
     transform: scale(0);
     z-index: 20;
   }
-
-  .mask {
-    background: white;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
 </style>
 </head>
-
 <body>
 
 <div class="menu">
-  <div class="menu-item mask" data-link="work.html">WORK</div>
-  <div class="menu-item mask" data-link="about.html">ABOUT</div>
-  <div class="menu-item mask" data-link="contact.html">CONTACT</div>
+  <div class="menu-item" data-link="work.html">WORK</div>
+  <div class="menu-item" data-link="about.html">ABOUT</div>
+  <div class="menu-item" data-link="contact.html">CONTACT</div>
 </div>
 
 <div id="transition"></div>
-
 <img id="peach" src="./peach.png" />
 
-<canvas id="paint"></canvas>
-<canvas id="mask"></canvas>
+<canvas id="trailCanvas"></canvas>
+<canvas id="permanentCanvas"></canvas>
 
 <script>
-  const paint = document.getElementById('paint');
-  const mask = document.getElementById('mask');
-  const ctxPaint = paint.getContext('2d');
-  const ctxMask = mask.getContext('2d');
-  const peach = document.getElementById('peach');
+  const trailCanvas = document.getElementById('trailCanvas');
+  const permCanvas  = document.getElementById('permanentCanvas');
+  const ctxTrail = trailCanvas.getContext('2d');
+  const ctxPerm  = permCanvas.getContext('2d');
+  const peach    = document.getElementById('peach');
+  const menuItems = document.querySelectorAll('.menu-item');
+
+  // 임시 캔버스 한 번만 생성
+  const tmpCanvas = document.createElement('canvas');
+  const ctxTmp = tmpCanvas.getContext('2d');
 
   function resize() {
-    paint.width = window.innerWidth;
-    paint.height = window.innerHeight;
-    mask.width = window.innerWidth;
-    mask.height = window.innerHeight;
+    [trailCanvas, permCanvas, tmpCanvas].forEach(c => {
+      c.width  = window.innerWidth;
+      c.height = window.innerHeight;
+    });
   }
   resize();
   window.addEventListener('resize', resize);
 
   let mouseX = window.innerWidth / 2;
   let mouseY = window.innerHeight / 2;
-  let x = mouseX;
-  let y = mouseY;
+  let x = window.innerWidth / 2;
+  let y = window.innerHeight / 2;
+  let vx = 0, vy = 0;
+  let wanderAngle = Math.random() * Math.PI * 2;
+  let time = 0;
 
   window.addEventListener('mousemove', e => {
     mouseX = e.clientX;
     mouseY = e.clientY;
   });
 
+  const trails = [];
+  const MAX_TRAIL = 400;
+
+  function getMenuRects() {
+    return Array.from(menuItems).map(item => ({
+      text: item.textContent,
+      rect: item.getBoundingClientRect()
+    }));
+  }
+
+  function stampPink(px, py, radius) {
+    const menus = getMenuRects();
+
+    ctxTmp.clearRect(0, 0, tmpCanvas.width, tmpCanvas.height);
+
+    // 1. 텍스트를 핑크로 그리기
+    ctxTmp.globalCompositeOperation = 'source-over';
+    ctxTmp.font = 'bold 48px Arial';
+    ctxTmp.textBaseline = 'top';
+    ctxTmp.fillStyle = '#f3a0b5';
+    menus.forEach(m => {
+      ctxTmp.fillText(m.text, m.rect.left, m.rect.top);
+    });
+
+    // 2. 현재 원과 교차 영역만 남기기
+    ctxTmp.globalCompositeOperation = 'destination-in';
+    ctxTmp.beginPath();
+    ctxTmp.arc(px, py, radius, 0, Math.PI * 2);
+    ctxTmp.fill();
+
+    // 3. permCanvas에 누적 (지우지 않음)
+    ctxPerm.globalCompositeOperation = 'source-over';
+    ctxPerm.drawImage(tmpCanvas, 0, 0);
+  }
+
   function draw() {
-  const followSpeedBase = 0.01;
-const followSpeedRand = 0.04;
+    time++;
+    const dx = x - mouseX;
+    const dy = y - mouseY;
+    const dist = Math.hypot(dx, dy);
 
-   const followSpeed =
-  followSpeedBase + Math.random() * followSpeedRand;
-const escapeSpeed = 0.6;   // 도망 반응 속도
-const escapeRadius = 120;   // 도망 시작 거리
-const escapePower = 10;    // 도망 세기
+    const comfortZone = 180;
+    const attractZone = 220;
 
-const dx = x - mouseX;
-const dy = y - mouseY;
-const dist = Math.hypot(dx, dy);
+    if (dist < comfortZone) {
+      const angle = Math.atan2(dy, dx);
+      const force = (comfortZone - dist) / comfortZone * 0.5;
+      vx += Math.cos(angle) * force;
+      vy += Math.sin(angle) * force;
+    } else if (dist > attractZone) {
+      const angle = Math.atan2(-dy, -dx);
+      vx += Math.cos(angle) * 0.5;
+      vy += Math.sin(angle) * 0.5;
+    } else {
+      wanderAngle += (Math.random() - 0.5) * 0.2;
+      const orbitAngle = Math.atan2(dy, dx) + Math.PI + 0.4;
+      vx += Math.cos(orbitAngle + wanderAngle * 0.3) * 0.09;
+      vy += Math.sin(orbitAngle + wanderAngle * 0.3) * 0.09;
+    }
 
-let targetX = mouseX;
-let targetY = mouseY;
+    // 미세 진동
+    vx += Math.sin(time * 0.07) * 0.05;
+    vy += Math.cos(time * 0.11) * 0.05;
 
-if (dist > 0.1 && dist < escapeRadius) {
-  const force = (escapeRadius - dist) / escapeRadius;
+    vx *= 0.85;
+    vy *= 0.85;
 
-  // 현재 도망 각도
-  let angle = Math.atan2(dy, dx);
+    const margin = 80;
+    if (x < margin) vx += 0.8;
+    if (x > window.innerWidth - margin) vx -= 0.8;
+    if (y < margin) vy += 0.8;
+    if (y > window.innerHeight - margin) vy -= 0.8;
 
-  // 랜덤 각도 편차 (라디안)
-  const randomAngle = (Math.random() - 0.5) * 0.8;
-  angle += randomAngle;
+    x += vx;
+    y += vy;
 
-  targetX = x + Math.cos(angle) * force * escapePower;
-  targetY = y + Math.sin(angle) * force * escapePower;
-}
-const speed = dist < escapeRadius ? escapeSpeed : followSpeed;
+    const speed = Math.hypot(vx, vy);
+    const radius = Math.min(28 + speed * 2.5, 42);
+    trails.push({ x, y, radius });
+    if (trails.length > MAX_TRAIL) trails.shift();
 
-x += (targetX - x) * speed;
-y += (targetY - y) * speed;
+    // 핑크 궤적
+    ctxTrail.clearRect(0, 0, trailCanvas.width, trailCanvas.height);
+    trails.forEach((t, i) => {
+      const age = i / trails.length;
+      const expandedRadius = t.radius + (1 - age) * 18;
+      const alpha = age * 0.75 + 0.05;
+      ctxTrail.globalAlpha = alpha;
+      ctxTrail.fillStyle = '#f3a0b5';
+      ctxTrail.beginPath();
+      ctxTrail.arc(t.x, t.y, expandedRadius, 0, Math.PI * 2);
+      ctxTrail.fill();
+    });
+    ctxTrail.globalAlpha = 1;
 
-
-    // 분홍 경로
-    ctxPaint.fillStyle = '#f3a0b5';
-    ctxPaint.beginPath();
-    ctxPaint.arc(x, y, 35, 0, Math.PI * 2);
-    ctxPaint.fill();
-
-    // 마스크 제거
-    ctxMask.globalCompositeOperation = 'destination-out';
-    ctxMask.beginPath();
-    ctxMask.arc(x, y, 40, 0, Math.PI * 2);
-    ctxMask.fill();
-    ctxMask.globalCompositeOperation = 'source-over';
+    // 현재 위치 핑크 누적
+    stampPink(x, y, radius + 18);
 
     peach.style.left = x + 'px';
-    peach.style.top = y + 'px';
+    peach.style.top  = y + 'px';
 
     requestAnimationFrame(draw);
   }
 
   draw();
 
-  // 클릭 전환
   const transition = document.getElementById('transition');
-  document.querySelectorAll('.menu-item').forEach(item => {
+  menuItems.forEach(item => {
     item.addEventListener('click', () => {
       const r = item.getBoundingClientRect();
       transition.style.left = r.left + r.width / 2 + 'px';
-      transition.style.top = r.top + r.height / 2 + 'px';
+      transition.style.top  = r.top  + r.height / 2 + 'px';
       transition.style.transform = 'translate(-50%, -50%) scale(0)';
       transition.style.transition = 'transform 0.9s ease-out';
-
       requestAnimationFrame(() => {
         transition.style.transform = 'translate(-50%, -50%) scale(150)';
       });
-
-      setTimeout(() => {
-        location.href = item.dataset.link;
-      }, 900);
+      setTimeout(() => { location.href = item.dataset.link; }, 900);
     });
   });
 </script>
