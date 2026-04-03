@@ -25,7 +25,7 @@
     font-weight: bold;
     user-select: none;
     z-index: 10;
-    pointer-events: auto;
+    pointer-events: none;
     color: transparent;
   }
 
@@ -55,6 +55,14 @@
     z-index: 2;
   }
 
+  #hoverCanvas {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 3;
+  }
+
   #transition {
     position: fixed;
     width: 20px;
@@ -70,8 +78,8 @@
 <body>
 
 <div class="menu">
-  <div class="menu-item" data-link="work.html">WORK</div>
   <div class="menu-item" data-link="about.html">ABOUT</div>
+  <div class="menu-item" data-link="work.html">WORK</div>
   <div class="menu-item" data-link="contact.html">CONTACT</div>
 </div>
 
@@ -80,20 +88,24 @@
 
 <canvas id="trailCanvas"></canvas>
 <canvas id="permanentCanvas"></canvas>
+<canvas id="hoverCanvas"></canvas>
 
 <script>
   const trailCanvas = document.getElementById('trailCanvas');
   const permCanvas  = document.getElementById('permanentCanvas');
+  const hoverCanvas = document.getElementById('hoverCanvas');
   const ctxTrail = trailCanvas.getContext('2d');
   const ctxPerm  = permCanvas.getContext('2d');
+  const ctxHover = hoverCanvas.getContext('2d');
   const peach    = document.getElementById('peach');
   const menuItems = document.querySelectorAll('.menu-item');
+  const menuWrap  = document.querySelector('.menu');
 
   const tmpCanvas = document.createElement('canvas');
   const ctxTmp = tmpCanvas.getContext('2d');
 
   function resize() {
-    [trailCanvas, permCanvas, tmpCanvas].forEach(c => {
+    [trailCanvas, permCanvas, hoverCanvas, tmpCanvas].forEach(c => {
       c.width  = window.innerWidth;
       c.height = window.innerHeight;
     });
@@ -101,30 +113,53 @@
   resize();
   window.addEventListener('resize', resize);
 
-  let mouseX = window.innerWidth / 2;
-  let mouseY = window.innerHeight / 2;
-  let x = window.innerWidth / 2;
-  let y = window.innerHeight / 2;
+  const landX = window.innerWidth / 2;
+  const landY = window.innerHeight / 2;
+
+  let x = landX;
+  let y = -80;
   let vx = 0, vy = 0;
   let wanderAngle = Math.random() * Math.PI * 2;
   let time = 0;
+  let mouseX = landX;
+  let mouseY = landY;
 
-  // 마우스 이벤트
+  let state = 'drop';
+  let splashParticles = [];
+  let bounceVy = 0;
+  let bounceY  = 0;
+  let bouncing = false;
+  let hoveredItem = null;
+  let clickParticles = [];
+
   window.addEventListener('mousemove', e => {
-    mouseX = e.clientX;
-    mouseY = e.clientY;
+    if (state === 'interact') {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+    }
+    hoveredItem = null;
+    menuItems.forEach(item => {
+      const r = item.getBoundingClientRect();
+      if (e.clientX >= r.left && e.clientX <= r.right &&
+          e.clientY >= r.top  && e.clientY <= r.bottom) {
+        hoveredItem = item;
+      }
+    });
   });
 
-  // 터치 이벤트 — 손가락 위치를 mouseX/Y로 동일하게 처리
   window.addEventListener('touchmove', e => {
-    e.preventDefault();
-    mouseX = e.touches[0].clientX;
-    mouseY = e.touches[0].clientY;
+    if (state === 'interact') {
+      e.preventDefault();
+      mouseX = e.touches[0].clientX;
+      mouseY = e.touches[0].clientY;
+    }
   }, { passive: false });
 
   window.addEventListener('touchstart', e => {
-    mouseX = e.touches[0].clientX;
-    mouseY = e.touches[0].clientY;
+    if (state === 'interact') {
+      mouseX = e.touches[0].clientX;
+      mouseY = e.touches[0].clientY;
+    }
   });
 
   const trails = [];
@@ -140,7 +175,6 @@
   function stampPink(px, py, radius) {
     const menus = getMenuRects();
     ctxTmp.clearRect(0, 0, tmpCanvas.width, tmpCanvas.height);
-
     ctxTmp.globalCompositeOperation = 'source-over';
     ctxTmp.font = 'bold 48px Arial';
     ctxTmp.textBaseline = 'top';
@@ -148,76 +182,180 @@
     menus.forEach(m => {
       ctxTmp.fillText(m.text, m.rect.left, m.rect.top);
     });
-
     ctxTmp.globalCompositeOperation = 'destination-in';
     ctxTmp.beginPath();
     ctxTmp.arc(px, py, radius, 0, Math.PI * 2);
     ctxTmp.fill();
-
     ctxPerm.globalCompositeOperation = 'source-over';
     ctxPerm.drawImage(tmpCanvas, 0, 0);
   }
 
+  function drawHover() {
+    ctxHover.clearRect(0, 0, hoverCanvas.width, hoverCanvas.height);
+    if (!hoveredItem) return;
+    const r = hoveredItem.getBoundingClientRect();
+    ctxHover.font = 'bold 48px Arial';
+    ctxHover.textBaseline = 'top';
+    ctxHover.textAlign = 'left';
+    ctxHover.fillStyle = '#e8608a';
+    ctxHover.globalAlpha = 0.6;
+    ctxHover.fillText(hoveredItem.textContent, r.left, r.top);
+    ctxHover.globalAlpha = 1;
+  }
+
+  function createParticles(px, py, power) {
+    const count = 18;
+    const particles = [];
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 / count) * i + (Math.random() - 0.5) * 0.4;
+      const speed = power + Math.random() * 3;
+      const size  = 3 + Math.random() * 8;
+      particles.push({
+        x: px, y: py,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - power * 0.8,
+        size, alpha: 1, gravity: 0.2
+      });
+    }
+    return particles;
+  }
+
+  function createSplash(px, py, impactVy) {
+    splashParticles = createParticles(px, py, Math.min(impactVy * 0.4, 6));
+  }
+
+  function createClickSplash(px, py) {
+    clickParticles = createParticles(px, py, 5);
+  }
+
+  function drawParticles(particles, ctx) {
+    let alive = false;
+    particles.forEach(p => {
+      if (p.alpha <= 0) return;
+      alive = true;
+      p.vy += p.gravity;
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vx *= 0.92;
+      p.alpha -= 0.025;
+      ctx.globalAlpha = Math.max(p.alpha, 0);
+      ctx.fillStyle = '#f3a0b5';
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+    return alive;
+  }
+
   function draw() {
     time++;
-    const dx = x - mouseX;
-    const dy = y - mouseY;
-    const dist = Math.hypot(dx, dy);
-
-    const comfortZone = 110;
-    const attractZone = 220;
-
-    if (dist < comfortZone) {
-      const angle = Math.atan2(dy, dx);
-      const force = (comfortZone - dist) / comfortZone * 0.5;
-      vx += Math.cos(angle) * force;
-      vy += Math.sin(angle) * force;
-    } else if (dist > attractZone) {
-      const angle = Math.atan2(-dy, -dx);
-      vx += Math.cos(angle) * 0.5;
-      vy += Math.sin(angle) * 0.5;
-    } else {
-      wanderAngle += (Math.random() - 0.5) * 0.2;
-      const orbitAngle = Math.atan2(dy, dx) + Math.PI + 0.4;
-      vx += Math.cos(orbitAngle + wanderAngle * 0.3) * 0.09;
-      vy += Math.sin(orbitAngle + wanderAngle * 0.3) * 0.09;
-    }
-
-    vx += Math.sin(time * 0.07) * 0.05;
-    vy += Math.cos(time * 0.11) * 0.05;
-
-    vx *= 0.85;
-    vy *= 0.85;
-
-    const margin = 80;
-    if (x < margin) vx += 0.8;
-    if (x > window.innerWidth - margin) vx -= 0.8;
-    if (y < margin) vy += 0.8;
-    if (y > window.innerHeight - margin) vy -= 0.8;
-
-    x += vx;
-    y += vy;
-
-    const speed = Math.hypot(vx, vy);
-    const radius = Math.min(28 + speed * 2.5, 42);
-    trails.push({ x, y, radius });
-    if (trails.length > MAX_TRAIL) trails.shift();
-
     ctxTrail.clearRect(0, 0, trailCanvas.width, trailCanvas.height);
-    trails.forEach((t, i) => {
-      const age = i / trails.length;
-      const expandedRadius = t.radius + (1 - age) * 18;
-      const alpha = age * 0.75 + 0.05;
-      ctxTrail.globalAlpha = alpha;
+
+    if (state === 'drop') {
+      vy += 0.55;
+      x += vx;
+      y += vy;
+
+      ctxTrail.globalAlpha = 0.25;
       ctxTrail.fillStyle = '#f3a0b5';
       ctxTrail.beginPath();
-      ctxTrail.arc(t.x, t.y, expandedRadius, 0, Math.PI * 2);
+      ctxTrail.arc(x, y, 18, 0, Math.PI * 2);
       ctxTrail.fill();
-    });
-    ctxTrail.globalAlpha = 1;
+      ctxTrail.globalAlpha = 1;
 
-    stampPink(x, y, radius + 18);
+      if (y >= landY) {
+        y = landY;
+        const impactVy = vy;
+        vx = 0; vy = 0;
+        createSplash(x, y, impactVy);
+        bounceY  = y;
+        bounceVy = -impactVy * 0.25;
+        bouncing = true;
+        state = 'splash';
+      }
+    }
 
+    else if (state === 'splash') {
+      const alive = drawParticles(splashParticles, ctxTrail);
+      if (bouncing) {
+        bounceVy += 0.4;
+        bounceY  += bounceVy;
+        if (bounceY >= landY) {
+          bounceY = landY;
+          bounceVy = 0;
+          bouncing = false;
+        }
+        y = bounceY;
+      }
+      if (!alive && !bouncing) {
+        state = 'interact';
+        vx = 0; vy = 0;
+        mouseX = x;
+        mouseY = y + 200;
+        menuWrap.style.pointerEvents = 'auto';
+      }
+    }
+
+    else if (state === 'interact') {
+      const dx = x - mouseX;
+      const dy = y - mouseY;
+      const dist = Math.hypot(dx, dy);
+      const comfortZone = 160;
+      const attractZone = 180;
+
+      if (dist < comfortZone) {
+        const angle = Math.atan2(dy, dx);
+        const force = (comfortZone - dist) / comfortZone * 0.6;
+        vx += Math.cos(angle) * force;
+        vy += Math.sin(angle) * force;
+      } else if (dist > attractZone) {
+        const angle = Math.atan2(-dy, -dx);
+        vx += Math.cos(angle) * 0.9;
+        vy += Math.sin(angle) * 0.9;
+      } else {
+        wanderAngle += (Math.random() - 0.5) * 0.2;
+        const orbitAngle = Math.atan2(dy, dx) + Math.PI + 0.4;
+        vx += Math.cos(orbitAngle + wanderAngle * 0.3) * 0.09;
+        vy += Math.sin(orbitAngle + wanderAngle * 0.3) * 0.09;
+      }
+
+      vx += Math.sin(time * 0.07) * 0.05;
+      vy += Math.cos(time * 0.11) * 0.05;
+      vx *= 0.85;
+      vy *= 0.85;
+
+      const margin = 80;
+      if (x < margin) vx += 0.8;
+      if (x > window.innerWidth - margin) vx -= 0.8;
+      if (y < margin) vy += 0.8;
+      if (y > window.innerHeight - margin) vy -= 0.8;
+
+      x += vx;
+      y += vy;
+
+      const speed = Math.hypot(vx, vy);
+      const radius = Math.min(28 + speed * 2.5, 42);
+      trails.push({ x, y, radius });
+      if (trails.length > MAX_TRAIL) trails.shift();
+
+      trails.forEach((t, i) => {
+        const age = i / trails.length;
+        const expandedRadius = t.radius + (1 - age) * 18;
+        const alpha = age * 0.75 + 0.05;
+        ctxTrail.globalAlpha = alpha;
+        ctxTrail.fillStyle = '#f3a0b5';
+        ctxTrail.beginPath();
+        ctxTrail.arc(t.x, t.y, expandedRadius, 0, Math.PI * 2);
+        ctxTrail.fill();
+      });
+      ctxTrail.globalAlpha = 1;
+
+      stampPink(x, y, radius + 18);
+      drawParticles(clickParticles, ctxTrail);
+    }
+
+    drawHover();
     peach.style.left = x + 'px';
     peach.style.top  = y + 'px';
 
@@ -226,19 +364,26 @@
 
   draw();
 
-  // 클릭 + 탭 전환
   const transition = document.getElementById('transition');
   menuItems.forEach(item => {
     item.addEventListener('click', () => {
-      const r = item.getBoundingClientRect();
-      transition.style.left = r.left + r.width / 2 + 'px';
-      transition.style.top  = r.top  + r.height / 2 + 'px';
-      transition.style.transform = 'translate(-50%, -50%) scale(0)';
-      transition.style.transition = 'transform 0.9s ease-out';
-      requestAnimationFrame(() => {
-        transition.style.transform = 'translate(-50%, -50%) scale(150)';
-      });
-      setTimeout(() => { location.href = item.dataset.link; }, 900);
+      // 복숭아 현재 위치에서 물방울
+      createClickSplash(x, y);
+
+      // 300ms 후 전환 시작
+      setTimeout(() => {
+        const r = item.getBoundingClientRect();
+        const cx = r.left + r.width / 2;
+        const cy = r.top  + r.height / 2;
+        transition.style.left = cx + 'px';
+        transition.style.top  = cy + 'px';
+        transition.style.transform = 'translate(-50%, -50%) scale(0)';
+        transition.style.transition = 'transform 0.7s ease-out';
+        requestAnimationFrame(() => {
+          transition.style.transform = 'translate(-50%, -50%) scale(150)';
+        });
+        setTimeout(() => { location.href = item.dataset.link; }, 700);
+      }, 300);
     });
   });
 </script>
